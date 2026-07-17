@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Workspace Pro (Local LLM)</title>
+    <style>
+        /* Определение цветовых палитр через переменные */
+        :root {
+            --bg-app: #fafafa;
+            --bg-container: #ffffff;
+            --border-color: #eaeaea;
+            --text-main: #000000;
+            --text-muted: #666666;
+            --text-input-bg: #f4f4f5;
+            --text-input-border: #e4e4e7;
+            --text-input-focus: #a1a1aa;
+            --badge-human-bg: #f4f4f5;
+            --badge-human-text: #000000;
+            --badge-ai-bg: #000000;
+            --badge-ai-text: #ffffff;
+            --btn-send-disabled: #e4e4e7;
+            --btn-send-disabled-icon: #71717a;
+            --btn-send-active: #09090b;
+            --btn-send-active-icon: #ffffff;
+            --card-inner-bg: #fafafa;
+            --card-border: #000000;
+        }
+
+        /* Автоматическая тёмная тема на основе настроек устройства */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-app: #000000;
+                --bg-container: #0a0a0a;
+                --border-color: #1f1f1f;
+                --text-main: #ffffff;
+                --text-muted: #a1a1aa;
+                --text-input-bg: #121212;
+                --text-input-border: #27272a;
+                --text-input-focus: #52525b;
+                --badge-human-bg: #1c1c1e;
+                --badge-human-text: #ffffff;
+                --badge-ai-bg: #ffffff;
+                --badge-ai-text: #000000;
+                --btn-send-disabled: #1c1c1e;
+                --btn-send-disabled-icon: #52525b;
+                --btn-send-active: #ffffff;
+                --btn-send-active-icon: #000000;
+                --card-inner-bg: #121212;
+                --card-border: #ffffff;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-app);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            min-height: 100dvh;
+            color: var(--text-main);
+            transition: background-color 0.3s ease;
+        }
+
+        /* Главный контейнер */
+        .app-container {
+            width: 100%;
+            max-width: 800px;
+            height: 90vh;
+            height: 90dvh;
+            background: var(--bg-container);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+            overflow: hidden;
+            position: relative;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+
+        /* Шапка */
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-container);
+            transition: background 0.3s ease, border-color 0.3s ease;
+            z-index: 10;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        /* Округлый статус-локализатор */
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--text-input-bg);
+            padding: 6px 14px;
+            border-radius: 100px;
+            transition: all 0.3s ease;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #e4e4e7;
+            border-radius: 50%;
+            display: inline-block;
+            transition: background 0.3s ease;
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Кнопка очистки */
+        .clear-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+        }
+
+        .clear-btn:hover {
+            border-color: var(--text-main);
+            color: var(--text-main);
+        }
+
+        /* Область сообщений */
+        .chat-box {
+            flex-grow: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: var(--bg-container);
+            transition: background 0.3s ease;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Сообщения */
+        .message {
+            display: flex;
+            width: 100%;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.bot {
+            justify-content: flex-start;
+        }
+
+        .bubble {
+            max-width: 85%;
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .user .bubble {
+            background: var(--text-main);
+            color: var(--bg-container);
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot .bubble {
+            background: var(--bg-container);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Панель ввода внизу */
+        .input-area {
+            padding: 16px 24px 24px 24px;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-container);
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+
+        /* Тэги-переключатели */
+        .tags-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px;
+        }
+
+        .tags-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .mode-tag {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-container);
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .mode-tag.active {
+            background: var(--text-main);
+            color: var(--bg-container);
+            border-color: var(--text-main);
+        }
+
+        /* Ультра-округлое поле ввода */
+        .input-wrapper {
+            background: var(--text-input-bg);
+            border: 1px solid var(--text-input-border);
+            border-radius: 100px;
+            display: flex;
+            align-items: center;
+            padding: 6px 10px 6px 18px;
+            transition: all 0.2s ease;
+        }
+
+        .input-wrapper:focus-within {
+            background: var(--bg-container);
+            border-color: var(--text-input-focus);
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.02);
+        }
+
+        /* Кнопка скрепки */
+        .attach-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.2s;
+        }
+
+        .attach-btn:hover {
+            opacity: 0.7;
+        }
+
+        .attach-icon {
+            width: 20px;
+            height: 20px;
+            fill: var(--text-main);
+        }
+
+        #text-input {
+            flex-grow: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            resize: none;
+            height: 24px;
+            max-height: 120px;
+            padding: 4px 0;
+            font-family: inherit;
+            color: var(--text-main);
+        }
+
+        #text-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* Круглая кнопка отправки */
+        .send-btn {
+            background: var(--btn-send-disabled);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-left: 8px;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        /* Активное состояние кнопки отправки */
+        .send-btn.active {
+            background: var(--btn-send-active);
+        }
+
+        .send-btn.active svg {
+            fill: var(--btn-send-active-icon);
+        }
+
+        .send-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: var(--btn-send-disabled-icon);
+            transition: fill 0.2s ease;
+        }
+
+        /* Файловый бейдж */
+        .file-badge {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: var(--text-input-bg);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-bottom: 8px;
+            width: fit-content;
+        }
+
+        .file-badge button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            padding: 0;
+            color: var(--text-main);
+        }
+
+        /* Карточки аналитики */
+        .analysis-card {
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 18px;
+            background: var(--bg-container);
+            width: 100%;
+            max-width: 550px;
+            text-align: left;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+
+        .badge {
+            border: 1px solid var(--card-border);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge.ai {
+            background: var(--badge-ai-bg);
+            color: var(--badge-ai-text);
+        }
+
+        .badge.human {
+            background: var(--badge-human-bg);
+            color: var(--badge-human-text);
+        }
+
+        /* --- МЕДИА-ЗАПРОСЫ (Адаптивный мобильный дизайн) --- */
+        @media (max-width: 600px) {
+            body {
+                align-items: flex-start;
+            }
+
+            .app-container {
+                width: 100%;
+                height: 100vh;
+                height: 100dvh;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+            }
+
+            .chat-header {
+                padding: 12px 16px;
+            }
+
+            .header-title {
+                font-size: 16px;
+            }
+
+            .status-container {
+                padding: 4px 10px;
+            }
+
+            .status-text {
+                font-size: 11px;
+                max-width: 110px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .clear-btn {
+                padding: 4px 8px;
+                font-size: 11px;
+            }
+
+            .chat-box {
+                padding: 16px;
+                gap: 12px;
+            }
+
+            .bubble {
+                max-width: 90%;
+                padding: 10px 14px;
+                font-size: 13px;
+            }
+
+            .input-area {
+                padding: 12px 16px 16px 16px;
+            }
+
+            .tags-container {
+                margin-bottom: 8px;
+                gap: 6px;
+            }
+
+            .mode-tag {
+                padding: 5px 10px;
+                font-size: 11px;
+            }
+
+            .input-wrapper {
+                padding: 4px 8px 4px 14px;
+            }
+
+            #text-input {
+                font-size: 13px;
+            }
+
+            .send-btn {
+                width: 32px;
+                height: 32px;
+            }
+
+            /* Адаптивность сеток в аналитических карточках */
+            .analysis-card {
+                padding: 14px;
+            }
+
+            .analysis-card > div[style*="display: grid"] {
+                grid-template-columns: 1fr !important; /* Перестраиваем 2 колонки в 1 на мобильных */
+                gap: 8px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Шапка -->
+        <div class="chat-header">
+            <h2 class="header-title">AI Workspace Pro</h2>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <!-- Закругленный статус-локализатор -->
+                <div class="status-container" id="status-badge">
+                    <span id="status-dot" class="status-dot"></span>
+                    <span id="status-text" class="status-text">Инициализация...</span>
+                </div>
+                <button id="clear-chat-btn" class="clear-btn">🗑️</button>
+            </div>
+        </div>
+
+        <!-- Чат-зона -->
+        <div id="chat-box" class="chat-box">
+            <!-- Приветственное сообщение -->
+            <div class="message bot">
+                <div class="bubble">
+                    Привет! Я твой интерактивный **анализатор текста**, работающий на базе локальной LLM **Qwen-1.5-0.5B**. Выбери режим, введи текст, и я обработаю его прямо в твоем браузере.
+                </div>
+            </div>
+        </div>
+
+        <!-- Нижняя панель ввода и управления -->
+        <div class="input-area">
+            
+            <!-- Переключатели режимов (тэги) -->
+            <div class="tags-container">
+                <button class="mode-tag active" data-mode="ai">🤖 Детектор ИИ</button>
+                <button class="mode-tag" data-mode="sentiment">🎭 Тональность текста</button>
+                <button class="mode-tag" data-mode="summary">📝 Краткая выжимка</button>
+            </div>
+
+            <!-- Бейдж прикрепленного файла -->
+            <div id="file-badge" class="file-badge">
+                📎 <span id="file-name">file.txt</span>
+                <button onclick="clearFile()">×</button>
+            </div>
+
+            <!-- Контейнер ввода -->
+            <div class="input-wrapper">
+                <button class="attach-btn" onclick="document.getElementById('file-input').click()" title="Прикрепить файл">
+                    <svg class="attach-icon" viewBox="0 0 24 24">
+                        <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.66 1.34 3 3 3s3-1.34 3-3V5c0-2.48-2.02-4.5-4.5-4.5S7 2.52 7 5v12.5c0 3.59 2.91 6.5 6.5 6.5s6.5-2.91 6.5-6.5V6h-1.5z"/>
+                    </svg>
+                </button>
+                <input type="file" id="file-input" style="display: none;" accept=".txt">
+
+                <textarea id="text-input" placeholder="Введите текст для проверки на ИИ..." rows="1" disabled></textarea>
+
+                <button id="send-btn" class="send-btn" disabled>
+                    <svg viewBox="0 0 24 24">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- СКРИПТ ПРИЛОЖЕНИЯ -->
+    <script type="module">
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1';
+
+        env.allowLocalModels = false;
+        env.remoteHost = 'https://huggingface.co';
+        env.remotePathTemplate = '{model}/resolve/{revision}/';
+
+        // Инициализация ограничений для стабильности и экономии ОЗУ
+        env.backends.onnx.wasm.numThreads = 1; 
+        env.backends.onnx.wasm.simd = false;
+
+        let generator = null;
+        let loadedFileContent = "";
+        let currentMode = "ai"; 
+
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const sendBtn = document.getElementById('send-btn');
+        const textInput = document.getElementById('text-input');
+        const fileInput = document.getElementById('file-input');
+        const fileBadge = document.getElementById('file-badge');
+        const fileName = document.getElementById('file-name');
+        const chatBox = document.getElementById('chat-box');
+        const clearChatBtn = document.getElementById('clear-chat-btn');
+        const modeTags = document.querySelectorAll('.mode-tag');
+
+        // Инициализация локальной LLM Qwen-1.5-0.5B с квантованием q4
+        async function initModel() {
+            try {
+                statusDot.style.background = "#eab308";
+                statusText.textContent = "Загрузка LLM (0%)...";
+
+                generator = await pipeline('text-generation', 'Xenova/Qwen1.5-0.5B-Chat', {
+                    quantized: true,
+                    quantized_suffix: '_q4',
+                    progress_callback: (data) => {
+                        if (data.status === 'progress') {
+                            statusText.textContent = `Загрузка LLM (${Math.round(data.progress)}%)...`;
+                        } else if (data.status === 'ready') {
+                            statusText.textContent = "Подготовка...";
+                        }
+                    }
+                });
+                
+                statusDot.style.background = "#22c55e";
+                statusText.textContent = "Готов к работе";
+                if (textInput) textInput.removeAttribute('disabled');
+                toggleSendButtonState(textInput && textInput.value.trim().length > 0);
+            } catch (error) {
+                console.error("Ошибка при инициализации модели:", error);
+                statusDot.style.background = "#ef4444";
+                statusText.textContent = "Ошибка загрузки";
+            }
+        }
+
+        // Локальное сохранение истории чата
+        function saveChatHistory() {
+            if (chatBox) {
+                localStorage.setItem('ai_workspace_pro_history', chatBox.innerHTML);
+            }
+        }
+
+        function loadChatHistory() {
+            const saved = localStorage.getItem('ai_workspace_pro_history');
+            if (saved && chatBox) {
+                chatBox.innerHTML = saved;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadChatHistory();
+            initModel();
+
+            if (clearChatBtn) {
+                clearChatBtn.addEventListener('click', () => {
+                    if (confirm("Вы действительно хотите удалить историю чата?")) {
+                        if (chatBox) {
+                            const firstMsg = chatBox.querySelector('.message.bot');
+                            chatBox.innerHTML = '';
+                            if (firstMsg) chatBox.appendChild(firstMsg);
+                        }
+                        localStorage.removeItem('ai_workspace_pro_history');
+                    }
+                });
+            }
+
+            // Переключение режимов
+            modeTags.forEach(tag => {
+                tag.addEventListener('click', () => {
+                    modeTags.forEach(t => t.classList.remove('active'));
+                    tag.classList.add('active');
+                    currentMode = tag.getAttribute('data-mode');
+                    
+                    if (textInput) {
+                        if (currentMode === 'ai') textInput.placeholder = "Введите текст для проверки на ИИ...";
+                        if (currentMode === 'sentiment') textInput.placeholder = "Введите текст для оценки эмоций...";
+                        if (currentMode === 'summary') textInput.placeholder = "Вставьте текст для краткой выжимки...";
+                    }
+                });
+            });
+
+            // Загрузка файлов
+            if (fileInput) {
+                fileInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    if (fileName) fileName.textContent = file.name;
+                    if (fileBadge) fileBadge.style.display = 'inline-flex';
+                    if (textInput) textInput.style.display = 'none';
+
+                    const reader = new FileReader();
+                    reader.onload = function(evt) {
+                        loadedFileContent = evt.target.result;
+                        toggleSendButtonState(true);
+                    };
+                    reader.readAsText(file);
+                });
+            }
+
+            if (textInput) {
+                textInput.addEventListener('input', () => {
+                    adjustHeight();
+                    const hasText = textInput.value.trim().length > 0;
+                    toggleSendButtonState(hasText);
+                });
+
+                textInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                    }
+                });
+            }
+
+            if (sendBtn) {
+                sendBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    handleSend();
+                });
+            }
+        });
+
+        function toggleSendButtonState(active) {
+            if (!generator) return;
+            if (active) {
+                sendBtn.removeAttribute('disabled');
+                sendBtn.classList.add('active');
+            } else {
+                sendBtn.setAttribute('disabled', 'true');
+                sendBtn.classList.remove('active');
+            }
+        }
+
+        window.clearFile = function() {
+            if (fileInput) fileInput.value = "";
+            if (fileBadge) fileBadge.style.display = 'none';
+            if (textInput) {
+                textInput.style.display = 'block';
+                textInput.value = "";
+            }
+            loadedFileContent = "";
+            toggleSendButtonState(false);
+            adjustHeight();
+        }
+
+        window.handleSend = async function() {
+            const text = loadedFileContent || (textInput ? textInput.value.trim() : "");
+            if (!text || !generator) return;
+
+            appendMessage(loadedFileContent ? `[Файл: ${fileInput.files[0].name}] \n${text.substring(0, 150)}...` : text, 'user');
+            
+            const textToAnalyze = text;
+            if (textInput) textInput.value = "";
+            clearFile();
+
+            const typingId = appendTypingIndicator();
+
+            setTimeout(async () => {
+                try {
+                    if (currentMode === 'ai') {
+                        await runAIDetector(textToAnalyze, typingId);
+                    } else if (currentMode === 'sentiment') {
+                        await runSentimentAnalyzer(textToAnalyze, typingId);
+                    } else if (currentMode === 'summary') {
+                        await runSummaryGenerator(textToAnalyze, typingId);
+                    }
+                } catch (err) {
+                    console.error(err);
+                    removeTypingIndicator(typingId);
+                    appendMessage("Произошла ошибка при обработке запроса моделью.", "bot");
+                }
+                saveChatHistory();
+            }, 50);
+        }
+
+        // --- ИНТЕГРАЦИЯ LLM С РЕЖИМАМИ ---
+
+        // 1. Детектор ИИ
+        async function runAIDetector(text, typingId) {
+            const prompt = `<|im_start|>system
+Ты — эксперт по анализу текстов. Определи вероятность того, что данный текст сгенерирован искусственным интеллектом (ИИ). Ответь строго в формате JSON: {"probability": число_от_0_до_100, "explanation": "короткое пояснение на русском языке"}.<|im_end|>
+<|im_start|>user
+Проанализируй текст: "${text.substring(0, 500)}"<|im_end|>
+<|im_start|>assistant`;
+
+            const output = await generator(prompt, { 
+                max_new_tokens: 80, 
+                temperature: 0.1,
+                use_cache: false 
+            });
+            const responseRaw = output[0].generated_text;
+            const responseText = cleanResponse(responseRaw, prompt);
+
+            let aiProbability = 0;
+            let explanation = "";
+
+            try {
+                const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const parsed = JSON.parse(jsonMatch[0].trim());
+                    aiProbability = typeof parsed.probability === 'number' ? parsed.probability : parseInt(parsed.probability) || 0;
+                    explanation = parsed.explanation || "Анализ завершен.";
+                } else {
+                    throw new Error("JSON-структура не найдена");
+                }
+            } catch (e) {
+                console.warn("Парсинг JSON не удался, ищем данные регулярными выражениями:", responseText);
+                
+                const numMatch = responseText.match(/(?:probability|вероятность)":\s*(\d+)/i) || responseText.match(/\d+/);
+                if (numMatch) {
+                    aiProbability = Math.min(Math.max(parseInt(numMatch[1] || numMatch[0]), 0), 100);
+                } else {
+                    aiProbability = 25;
+                }
+
+                const expMatch = responseText.match(/(?:explanation|пояснение)":\s*"([^"]+)"/i);
+                if (expMatch) {
+                    explanation = expMatch[1];
+                } else {
+                    explanation = responseText
+                        .replace(/\{[\s\S]*?\}/g, '')
+                        .replace(/["'{}]/g, '')
+                        .replace(/(probability|explanation|пояснение|вероятность):/gi, '')
+                        .trim();
+                    if (!explanation) explanation = "Текст успешно проанализирован локальной моделью.";
+                }
+            }
+
+            const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            const sentenceLengths = sentences.map(s => s.split(/\s+/).filter(w => w).length);
+            const averageLen = sentenceLengths.reduce((a, b) => a + b, 0) / (sentenceLengths.length || 1);
+            const variance = sentenceLengths.reduce((a, b) => a + Math.pow(b - averageLen, 2), 0) / (sentenceLengths.length || 1);
+            const stdDeviation = Math.sqrt(variance);
+            const burstiness = Math.round(Math.min((stdDeviation / 6) * 100, 100));
+
+            const words = text.toLowerCase().match(/[а-яа-яёe-z0-9]+/gi) || [];
+            const uniqueWords = new Set(words);
+            const uniqueRatio = words.length ? Math.round((uniqueWords.size / words.length) * 100) : 100;
+
+            removeTypingIndicator(typingId);
+            appendAIDetectorCard(aiProbability, burstiness, uniqueRatio, explanation);
+        }
+
+        // 2. Тональность и Токсичность
+        async function runSentimentAnalyzer(text, typingId) {
+            const prompt = `<|im_start|>system
+Ты — лингвистический анализатор. Проанализируй эмоциональный окрас текста. Ответь строго в формате JSON: {"rating": "Позитивный/Негативный/Нейтральный", "pos": число_от_0_до_100, "neg": число_от_0_до_100, "tox": число_от_0_до_100}.<|im_end|>
+<|im_start|>user
+Текст: "${text.substring(0, 500)}"<|im_end|>
+<|im_start|>assistant`;
+
+            const output = await generator(prompt, { 
+                max_new_tokens: 80, 
+                temperature: 0.1,
+                use_cache: false 
+            });
+            const responseText = cleanResponse(output[0].generated_text, prompt);
+
+            let rating = "Нейтральный";
+            let pos = 30, neg = 30, tox = 10;
+
+            try {
+                const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const data = JSON.parse(jsonMatch[0].trim());
+                    rating = data.rating ?? "Нейтральный";
+                    pos = data.pos ?? 30;
+                    neg = data.neg ?? 30;
+                    tox = data.tox ?? 10;
+                }
+            } catch (e) {
+                console.warn("Ошибка разбора JSON, применен fallback регулярных выражений");
+                const posMatch = responseText.match(/pos":\s*(\d+)/i);
+                const negMatch = responseText.match(/neg":\s*(\d+)/i);
+                const toxMatch = responseText.match(/tox":\s*(\d+)/i);
+                if (posMatch) pos = parseInt(posMatch[1]);
+                if (negMatch) neg = parseInt(negMatch[1]);
+                if (toxMatch) tox = parseInt(toxMatch[1]);
+            }
+
+            let ratingClass = "human";
+            if (rating === "Негативный") ratingClass = "ai";
+            if (tox > 30) {
+                rating = "Токсичность завышена ⚠️";
+                ratingClass = "ai";
+            }
+
+            removeTypingIndicator(typingId);
+            appendSentimentCard(rating, ratingClass, pos, neg, tox);
+        }
+
+        // 3. Суммаризация (TL;DR)
+        async function runSummaryGenerator(text, typingId) {
+            const prompt = `<|im_start|>system
+Ты — опытный редактор. Выдели 3 ключевых тезиса из предоставленного текста в виде кратких предложений на русском языке.<|im_end|>
+<|im_start|>user
+Текст: "${text}"<|im_end|>
+<|im_start|>assistant
+Вот ключевые тезисы:`;
+
+            const output = await generator(prompt, { 
+                max_new_tokens: 100, 
+                temperature: 0.3,
+                use_cache: false 
+            });
+            const responseText = cleanResponse(output[0].generated_text, prompt);
+
+            const lines = responseText.split('\n')
+                .map(line => line.replace(/^[-*•\d\.\s]+/, '').trim())
+                .filter(line => line.length > 5);
+
+            removeTypingIndicator(typingId);
+            appendSummaryCard(lines, text.split(/[.!?]+/).length, text.length);
+        }
+
+        function cleanResponse(generated, prompt) {
+            let result = generated;
+            if (result.startsWith(prompt)) {
+                result = result.substring(prompt.length);
+            }
+            result = result.replace(/<\|im_start\|>|<\|im_end\|>|system|user|assistant/gi, '');
+            return result.trim();
+        }
+
+        // --- ОТРИСОВКА ИНТЕРФЕЙСА ---
+
+        function appendMessage(content, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${sender}`;
+            msgDiv.innerHTML = `<div class="bubble">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`;
+            if (chatBox) {
+                chatBox.appendChild(msgDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function appendTypingIndicator() {
+            const id = 'typing-' + Date.now();
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message bot';
+            msgDiv.id = id;
+            msgDiv.innerHTML = `<div class="bubble" style="color: var(--text-muted); font-style: italic;">Локальная LLM вычисляет ответ...</div>`;
+            if (chatBox) {
+                chatBox.appendChild(msgDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+            return id;
+        }
+
+        function removeTypingIndicator(id) {
+            const indicator = document.getElementById(id);
+            if (indicator) indicator.remove();
+        }
+
+        function appendAIDetectorCard(aiProb, burstiness, uniqueRatio, explanation) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message bot';
+
+            const statusClass = aiProb > 50 ? 'badge ai' : 'badge human';
+            const statusText = aiProb > 50 ? 'AI Generated' : 'Human Written';
+
+            msgDiv.innerHTML = `
+                <div class="analysis-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <div>
+                            <div style="font-size: 28px; font-weight: bold; color: var(--text-main);">${aiProb}%</div>
+                            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Вероятность ИИ</div>
+                        </div>
+                        <div class="${statusClass}">${statusText}</div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                        <div style="border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; background: var(--bg-container);">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Сложность (Burstiness)</div>
+                            <div style="font-size: 16px; font-weight: bold; color: var(--text-main);">${burstiness}%</div>
+                        </div>
+                        <div style="border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; background: var(--bg-container);">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Уникальность слов</div>
+                            <div style="font-size: 16px; font-weight: bold; color: var(--text-main);">${uniqueRatio}%</div>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--text-main);">Заключение ИИ-эксперта:</div>
+                    <div style="font-size: 13px; color: var(--text-main); line-height: 1.5; border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; background: var(--card-inner-bg); max-height: 120px; overflow-y: auto;">
+                        ${escapeHtml(explanation)}
+                    </div>
+                </div>
+            `;
+
+            if (chatBox) {
+                chatBox.appendChild(msgDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function appendSentimentCard(rating, ratingClass, pos, neg, tox) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message bot';
+
+            msgDiv.innerHTML = `
+                <div class="analysis-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <div>
+                            <div style="font-size: 20px; font-weight: bold; color: var(--text-main);">${rating}</div>
+                            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Анализ тональности</div>
+                        </div>
+                        <div class="badge ${ratingClass}">TONE</div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                                <span>Позитивный тон</span>
+                                <strong>${pos}%</strong>
+                            </div>
+                            <div style="background: var(--text-input-border); height: 6px; border-radius: 3px; overflow: hidden;">
+                                <div style="background: var(--text-main); width: ${pos}%; height: 100%;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                                <span>Критичность / Негатив</span>
+                                <strong>${neg}%</strong>
+                            </div>
+                            <div style="background: var(--text-input-border); height: 6px; border-radius: 3px; overflow: hidden;">
+                                <div style="background: var(--text-muted); width: ${neg}%; height: 100%;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                                <span style="color: #ef4444;">Токсичность / Кликбейт</span>
+                                <strong>${tox}%</strong>
+                            </div>
+                            <div style="background: var(--text-input-border); height: 6px; border-radius: 3px; overflow: hidden;">
+                                <div style="background: #ef4444; width: ${tox}%; height: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (chatBox) {
+                chatBox.appendChild(msgDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function appendSummaryCard(lines, count, textLen) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message bot';
+
+            let pointsHtml = lines.map(line => `<li style="margin-bottom: 8px; line-height: 1.4;">${escapeHtml(line)}</li>`).join('');
+
+            msgDiv.innerHTML = `
+                <div class="analysis-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div style="font-size: 18px; font-weight: bold; color: var(--text-main);">TL;DR (Выжимка LLM)</div>
+                        <div class="badge human">Сжато</div>
+                    </div>
+                    
+                    <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-main);">
+                        ${pointsHtml || "Модель не смогла выделить отдельные тезисы."}
+                    </ul>
+
+                    <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-color); font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between;">
+                        <span>Предложений на входе: ${count}</span>
+                        <span>Символов: ${textLen}</span>
+                    </div>
+                </div>
+            `;
+
+            if (chatBox) {
+                chatBox.appendChild(msgDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function adjustHeight() {
+            if (!textInput) return;
+            textInput.style.height = '24px';
+            textInput.style.height = (textInput.scrollHeight - 4) + 'px';
+        }
+    </script>
+</body>
+</html>
